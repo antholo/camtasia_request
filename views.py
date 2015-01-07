@@ -146,7 +146,7 @@ def request_form():
 @app.route('/confirmation')
 @login_required
 def confirm_request():
-    msg = Message(subject='Course Combine Confirmation',
+    msg = Message(subject='Relay account setup',
         recipients=[app.config['MAIL_DEFAULT_SENDER'],
         session['uniqueName'] + app.config['EMAIL_DOMAIN']])
     msg.body = make_msg_text(session['firstName'],
