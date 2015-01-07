@@ -1,0 +1,44 @@
+{% extends "template.html" %}
+{% block content %}
+	<h1 class="documentFirstHeading">Request a New Course Setup</h1>
+	<p class="documentDescription">Use this form to request setup for a new course profile on the Camtasia Relay server.</p>
+	<div id="parent-fieldname-formPrologue">
+		<p>We need to collect a little information about the course you want to set up. It shouldn't hurt too badly.</p>
+	</div>
+	<div>
+		<form role="form" method="post" action="">
+		{{ form.csrf_token }}
+			<div class="field ArchetypesBooleanWidget ">
+				<p>{{ form.embed }} {{ form.embed.label }}</p>
+				<div class="formHelp">{{ form.embed.description }}</div>
+			</div>
+			<div>
+				<p>{{ form.download }} {{ form.download.label }}</p>
+				<div class="formHelp">{{ form.download.description }}</div>
+			</div>
+			<div>
+				<p>{{ form.share }} {{ form.share.label }}</p>
+				<div class="formHelp">{{ form.share.description }}</div>
+			</div>
+			<div class="field ArchetypesTextAreaWidget ">
+				<p>{{ form.location.label }}</p>
+				<div class="formHelp">{{ form.location.description }}</div>
+				{{ <span class="blurrable firstToFocus" rows="1" cols="40">form.location</span> }}
+			</div>
+			<div class="field ArchetypesSelectionWidget ">
+				<p>{{ <span class="formQuestion">form.expiration.label</span> }}</p>
+				<div class="formHelp">{{ form.expiration.description }}</div>
+				{{ form.expiration }}
+			</div>
+			<div>
+				<p>{{ form.training }} {{ form.training.label }}</p>
+				<div class="formHelp">{{ form.training.description }}</div>
+			</div>
+			<div>
+				<p>{{ form.comments.label }}</p>
+				{{ <span class="blurrable firstToFocus" rows="5" cols="40">form.comments</span> }}
+			</div>
+			<input class="context" type="submit" name="form_submit" value="Submit"></input>
+		</form>
+	</div>
+{% endblock %}

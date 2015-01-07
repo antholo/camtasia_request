@@ -1,7 +1,7 @@
 # camtasia_request/forms.py
 
 from flask_wtf import Form
-from wtforms import TextField, RadioField, BooleanField
+from wtforms import TextField, TextAreaField, SelectField, RadioField, BooleanField, validators
 from datetime import date
 
 # month constants for expiration choices function
@@ -13,47 +13,58 @@ JUN = 6
 
 
 class RequestForm(Form):
+    def get_expiration_choices():
+        year = date.today().year
+        month = date.today().month
+        if month == JAN or (month >= SEP and month <= DEC):
+            semester = 'Fall'
+        elif month >= FEB and month <= JUN:
+            semester = 'Spring'
+        else: # month is between
+            semester = 'Summer'
+        choices = ['Do Not Delete', semester + " " + str(year)]
+        while len(choices) < 10:
+            if semester == 'Fall':
+                year += 1
+                semester = 'Spring'
+            elif semester == 'Spring':
+                semester = 'Summer'
+            else: # semester == Summer
+                semester = 'Fall'
+            choices.append(semester + " " + str(year))
+        return zip(choices, choices)
+
     # get OU and Course names from views
     # gets list of courses for selection
     course = RadioField('Select course',
         validators=[validators.required(message="You must select a course")])
     
     # checkboxes for options
-    embed = BooleanField("Would you like us to embed your videos on your course D2L homepage?")
-    download = BooleanField(" Would you like to allow your students to be able to download your recordings?")
-    share = BooleanField(" Would you like to allow your students to share your recordings?")
-    training = BooleanField("Would you like some training?")
+    embed = BooleanField("Would you like us to embed your videos on your course D2L homepage?",
+        description="students in a central location as soon as they have been created. Alternatively, you can manually add the content to D2L within your course modules.")
+    download = BooleanField(" Would you like to allow your students to be able to download your recordings?",
+        description="Checking this will allow students to download a copy of the file for personal use when they are offline.")
+    share = BooleanField(" Would you like to allow your students to share your recordings?",
+        description="Checking this will allow students to get an embed code so they may include the recording in a portfolio. It will also provide tools for students to share the recording via Facebook, Twitter, LinkedIn and other social media outlets.")
+    training = BooleanField("Training?",
+        description="Would you like some training? One on One and group training is available for Relay and MediaSpace.")
 
     # text field for recording location
-    location = TextField("Recording location")
+    location = TextField("Recording Location",
+        description="The room number of the classroom you'll be teaching from. We ask so we can check to ensure the software and a working mic is installed. If you are planning on recording from your office or home let us know that here as well.")
 
     # text field for course name - in case D2L provided coursename is unsatisfactory
-    courseName = TextField("Course name as you would like it to appear",
+    courseName = TextField("Course Name",
+        description="Course Name as you would like it to appear. (ie Virology, Intro to Early Civ, Pathophysiology II)",
         validators=[validators.required(message="You must enter a course name")])
 
     # text box for additional comments
     comments = TextAreaField("Any additional information you want to give us?")
 
     # select field for date after which files will not be needed on the server
-    expiration = SelectField(default='Do Not Delete', choices=get_expiration_choices())
+    expiration = SelectField("Expiration Date",
+        description="We'd like to know how long you want the files to stay on the server. We won't make a habit of deleting them, but this will make it easier when we have to. Deletion will occur no earlier than the term specified.",
+        default="Do Not Delete",
+        choices=get_expiration_choices())
 
-    def get_expiration_choices():
-    year = date.today().year
-    month = date.today().month
-    if month == JAN or (month >= SEP and month <= DEC):
-        semester = 'Fall'
-    elif month >= FEB and month <= JUN:
-        semester = 'Spring'
-    else: # month is between
-        semester = 'Summer'
-    choices = ['Do Not Delete', semester + " " + str(year)]
-    while len(choices) < 10:
-        if semester == 'Fall':
-            year += 1
-            semester = 'Spring'
-        elif semester == 'Spring':
-            semester = 'Summer'
-        else: # semester == Summer
-            semester = 'Fall'
-        choices.append(semester + " " + str(year))
-    return zip(choices, choices)
+    

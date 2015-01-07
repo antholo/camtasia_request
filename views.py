@@ -4,7 +4,7 @@ from flask import Flask, render_template, request, session, flash, redirect, url
 from flask_mail import Mail, Message
 from flask_wtf.csrf import CsrfProtect
 from functools import wraps
-from form import SelectSemesterForm, SelectCoursesForm, AdditionalCourseForm
+from forms import RequestForm
 import requests
 import os
 import auth2 as d2lauth
@@ -95,24 +95,27 @@ def auth_handler():
         encrypt_requests=app.config['ENCRYPT_REQUESTS'])
 
     session['userContext'] = uc.get_context_properties()
-
+    '''
     my_url = uc.create_authenticated_url(
         '/d2l/api/lp/{0}/users/whoami'.format(app.config['VER']))
     r = requests.get(my_url)
-
     session['firstName'] = r.json()['FirstName']
     session['lastName'] = r.json()['LastName']
     session['userId'] = r.json()['Identifier']
-
+    '''
+    userData = get_user_data(uc)
+    session['firstName'] = userData['FirstName']
+    session['lastName'] = userData['LastName']
+    session['userId'] = userData['Identifier']
     """PRODUCTION: UNCOMMENT FOLLOWING LINE AND DELETE THE ONE AFTER THAT"""
-    #session['uniqueName'] = r.json()['UniqueName']
+    #session['uniqueName'] = userData['UniqueName']
     session['uniqueName'] = 'lookerb'
 
     code = get_semester_code()
     courseList = get_courses(uc, code)
     session['courseList'] = courseList
 
-    return redirect(url_for('request'))
+    return redirect(url_for('request_form'))
 
 
 @app.route('/request', methods=['GET', 'POST'])
@@ -127,15 +130,28 @@ def request_form():
     form.course.choices = get_course_choices(session['courseList'])
     if request.method == 'POST':
         if form.is_submitted() and form.validate_on_submit():
+            embed = 'no'
+            if form.embed.data:
+                embed = 'yes'
+            download = 'no'
+            if form.download.data:
+                download = 'yes'
+            share = 'no'
+            if form.share.data:
+                share = 'yes'
+            training = 'no'
+            if form.training.data:
+                training = 'yes'
+
             session['requestDetails'] = {
-                'courseId' : form.course.data
-                'embed' : form.embed.data
-                'download' : form.download.data
-                'share' : form.share.data
-                'training' : form.training.data
-                'location' : form.location.data
-                'courseName' : form.courseName.data
-                'comments' : form.comments.data
+                'courseId' : form.course.data,
+                'embed' : embed,
+                'download' : download,
+                'share' : share,
+                'training' : training,
+                'location' : form.location.data,
+                'courseName' : form.courseName.data,
+                'comments' : form.comments.data,
                 'expiration' : form.expiration.data}
             return redirect(url_for('confirm_request'))
 
@@ -146,18 +162,77 @@ def request_form():
 @app.route('/confirmation')
 @login_required
 def confirm_request():
+    submitterEmail = session['uniqueName'] + app.config['EMAIL_DOMAIN']
     msg = Message(subject='Relay account setup',
         recipients=[app.config['MAIL_DEFAULT_SENDER'],
-        session['uniqueName'] + app.config['EMAIL_DOMAIN']])
+        submitterEmail])
     msg.body = make_msg_text(session['firstName'],
         session['lastName'],
         session['requestDetails'])
-
+    msg.html = make_msg_html(session['firstName'],
+        session['lastName'],
+        submitterEmail,
+        session['requestDetails'])
+    mail.send(msg)
+    return render_template("confirmation.html")
 
 
 ###########
 # helpers #
 ###########
+
+
+def make_msg_text(firstName, lastName, submitterEmail, requestDetails):
+    email = 'Your E-Mail Address\n\t{0}\n'.format(submitterEmail)
+    name =  'Name\n\t{0} {1}\n'.format(firstName, lastName)
+    embed = '{0}\n\t{1}\n'.format(form.embed.label, requestDetails['embed'])
+    download = '{0}\n\t{1}\n'.format(form.download.label,
+        requestDetails['download'])
+    share = '{0}\n\t{1}\n'.format(form.share.label, requestDetails['share'])
+    ouNumber = 'OU Number\n\t{0}\n'.format(requestDetails['courseId'])
+    location = '{0}\n\t{1}'.format(form.location.label,
+        requestDetails['location'])
+    courseName = '{0}\n\t{1}\n'.format(form.courseName.label,
+        requestDetails['courseName'])
+    expiration = '{0}\n\t{1}\n'.format(form.expiration.label,
+        requestDetails['expiration'])
+    training = '{0}\n\t{1}\n'.format(form.training.label,
+        requestDetails['training'])
+    comments = '{0}\n\t{1}\n'.format(form.comments.label,
+        requestDetails['comments'])
+    return email, name, embed, download, share, ouNumber, location, \
+        courseName, expiration, training, comments
+
+
+def make_msg_html(firstName, lastName, submitterEmail, requestDetails):
+    email = '<dl><dt>Your E-Mail Address</dt><dd><a href=3D"mailto:{0}' + \
+         ' target=3D"_blank">{0}</a></dd>'.format(submitterEmail)
+    name = '<dt>Name</dt><dd>{0} {1}</dd>'.format(firstName, lastName)
+    embed = '<dt>{0}</dt><dd>{1}</dd>'.format(form.embed.label,
+        requestDetails['embed'])
+    download = '<dt>{0}</dt><dd>{1}</dd>'.format(form.download.label,
+        requestDetails['download'])
+    share = '<dt>{0}<dt><dd>{1}</dd>'.format(form.share.label,
+        requestDetails['share'])
+    ouNumber = '<dt>OU Number</dt><dd>{0}</dd>'.format(requestDetails['courseId'])
+    location = '<dt>{0}</dt><dd>{1}</dd>'.format(form.location.label,
+        requestDetails['location'])
+    courseName = '<dt>{0}</dt><dd>{1}</dd>'.format(form.courseName.label,
+        requestDetails['courseName'])
+    expiration = '<dt>{0}</dt><dd>{1}</dd>'.format(form.expiration.label,
+        requestDetails['expiration'])
+    training = '<dt>{0}</dt><dd>{1}</dd>'.format(form.training.label,
+        requestDetails['training'])
+    comments = '<dt>{0}</dt><dd>{1}</dd>'.format(form.comments.label,
+        requestDetails['comments'])
+    return email, name, embed, download, share, ouNumber, location, \
+        courseName, expiration, training, comments
+
+
+def get_user_data(uc):
+    my_url = uc.create_authenticated_url(
+        '/d2l/api/lp/{0}/users/whoami'.format(app.config['VER']))
+    return requests.get(my_url).json()
 
 
 def get_course_choices(courseList):
@@ -204,7 +279,7 @@ def get_courses(uc, code):
         for course in r.json()['Items']:
             semCode = str(course['OrgUnit']['Code'][6:10])
             if semCode == code:
-                courseList.append({{u'courseId': int(courseId),
+                courseList.append({u'courseId': int(courseId),
                     u'name': name,
                     u'code': code,
                     u'parsed': parse_code(code)})
@@ -222,3 +297,6 @@ def parse_code(code):
     '''
     parsed = code.split("_")
     return parsed[3] + " " + parsed[4] + " " + parsed[5]
+
+    if __name__ == '__main__':
+        app.run(debug=True)
