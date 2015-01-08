@@ -113,6 +113,7 @@ def auth_handler():
 
     code = get_semester_code()
     courseList = get_courses(uc, code)
+    print("COURSE LIST", courseList)
     session['courseList'] = courseList
 
     return redirect(url_for('request_form'))
@@ -128,8 +129,11 @@ def request_form():
         d2l_user_context_props_dict=session['userContext'])
     form = RequestForm(request.form)
     form.course.choices = get_course_choices(session['courseList'])
+    print(form.course.choices)
     if request.method == 'POST':
+        print("POST")
         if form.is_submitted() and form.validate_on_submit():
+            print("SUBMIT")
             embed = 'no'
             if form.embed.data:
                 embed = 'yes'
@@ -154,9 +158,12 @@ def request_form():
                 'comments' : form.comments.data,
                 'expiration' : form.expiration.data}
             return redirect(url_for('confirm_request'))
-
+        else:
+            print("NOT SUBMITTED")
+            return render_template("request.html", form=form, error=error)
     else:
-        render_template("request.html", form=form, error=error)
+        print("GET")
+        return render_template("request.html", form=form, error=error)
 
 
 @app.route('/confirmation')
@@ -246,6 +253,7 @@ def get_course_choices(courseList):
         linkPrefix +
         str(course['courseId']) +
         "'>D2L Page</a>") for course in courseList]
+    return choices
 
 
 def get_semester_code():
@@ -258,7 +266,7 @@ def get_semester_code():
     else: # month is between
         semester = SUMMER
     code = str(year - BASE_YEAR) + semester
-    while len(semesterCode) < 4:
+    while len(code) < 4:
         code = '0' + code
     return code
 
@@ -278,6 +286,7 @@ def get_courses(uc, code):
     while end == False:
         for course in r.json()['Items']:
             semCode = str(course['OrgUnit']['Code'][6:10])
+            print("SEMCODE", semCode, "CODE", code)
             if semCode == code:
                 courseList.append({u'courseId': int(courseId),
                     u'name': name,
@@ -298,5 +307,5 @@ def parse_code(code):
     parsed = code.split("_")
     return parsed[3] + " " + parsed[4] + " " + parsed[5]
 
-    if __name__ == '__main__':
-        app.run(debug=True)
+if __name__ == '__main__':
+    app.run(debug=True)

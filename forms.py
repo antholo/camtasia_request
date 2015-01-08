@@ -37,6 +37,7 @@ class RequestForm(Form):
     # get OU and Course names from views
     # gets list of courses for selection
     course = RadioField('Select course',
+        description="Which course do you want a profile for on the Camtasia Relay server?",
         validators=[validators.required(message="You must select a course")])
     
     # checkboxes for options
