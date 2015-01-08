@@ -129,11 +129,9 @@ def request_form():
         d2l_user_context_props_dict=session['userContext'])
     form = RequestForm(request.form)
     form.course.choices = get_course_choices(session['courseList'])
-    print(form.course.choices)
     if request.method == 'POST':
-        print("POST")
-        if form.is_submitted() and form.validate_on_submit():
-            print("SUBMIT")
+        #if form.is_submitted():
+        if form.validate_on_submit():
             embed = 'no'
             if form.embed.data:
                 embed = 'yes'
@@ -148,7 +146,7 @@ def request_form():
                 training = 'yes'
 
             session['requestDetails'] = {
-                'courseId' : form.course.data,
+                'courseId' : str(form.course.data),
                 'embed' : embed,
                 'download' : download,
                 'share' : share,
@@ -157,31 +155,47 @@ def request_form():
                 'courseName' : form.courseName.data,
                 'comments' : form.comments.data,
                 'expiration' : form.expiration.data}
+            '''
+            msg = generate_email(session['uniqueName'],
+                app.config['EMAIL_DOMAIN'],
+                app.config['MAIL_DEFAULT_SENDER'],
+                session['firstName'],
+                session['lastName'],
+                session['requestDetails'],
+                form)
+            '''
+            mail.send(msg)
             return redirect(url_for('confirm_request'))
         else:
-            print("NOT SUBMITTED")
+            error = form.errors
             return render_template("request.html", form=form, error=error)
     else:
-        print("GET")
         return render_template("request.html", form=form, error=error)
 
 
 @app.route('/confirmation')
 @login_required
 def confirm_request():
-    submitterEmail = session['uniqueName'] + app.config['EMAIL_DOMAIN']
+    form = RequestForm()
+    submitterEmail = session['uniqueName'] + "@" + app.config['EMAIL_DOMAIN']
     msg = Message(subject='Relay account setup',
         recipients=[app.config['MAIL_DEFAULT_SENDER'],
         submitterEmail])
     msg.body = make_msg_text(session['firstName'],
         session['lastName'],
-        session['requestDetails'])
+        submitterEmail,
+        session['requestDetails'],
+        form)
     msg.html = make_msg_html(session['firstName'],
         session['lastName'],
         submitterEmail,
-        session['requestDetails'])
+        session['requestDetails'],
+        form)
     mail.send(msg)
-    return render_template("confirmation.html")
+    
+    return render_template("confirmation.html",
+        form=form,
+        requestDetails=session['requestDetails'])
 
 
 ###########
@@ -189,7 +203,25 @@ def confirm_request():
 ###########
 
 
-def make_msg_text(firstName, lastName, submitterEmail, requestDetails):
+def generate_email(uniqueName, emailDomain, sender, firstName, lastName, requestDetails, form):
+    submitterEmail = uniqueName + emailDomain
+    msg = Message(subject='Relay account setup',
+        recipients=[sender,
+        submitterEmail])
+    msg.body = make_msg_text(firstName,
+        lastName,
+        submitterEmail,
+        requestDetails,
+        form)
+    msg.html = make_msg_html(firstName,
+        lastName,
+        submitterEmail,
+        requestDetails,
+        form)
+    return msg
+
+
+def make_msg_text(firstName, lastName, submitterEmail, requestDetails, form):
     email = 'Your E-Mail Address\n\t{0}\n'.format(submitterEmail)
     name =  'Name\n\t{0} {1}\n'.format(firstName, lastName)
     embed = '{0}\n\t{1}\n'.format(form.embed.label, requestDetails['embed'])
@@ -207,11 +239,11 @@ def make_msg_text(firstName, lastName, submitterEmail, requestDetails):
         requestDetails['training'])
     comments = '{0}\n\t{1}\n'.format(form.comments.label,
         requestDetails['comments'])
-    return email, name, embed, download, share, ouNumber, location, \
-        courseName, expiration, training, comments
+    return email + name + embed + download + share + ouNumber + location + \
+        courseName + expiration + training + comments
 
 
-def make_msg_html(firstName, lastName, submitterEmail, requestDetails):
+def make_msg_html(firstName, lastName, submitterEmail, requestDetails, form):
     email = '<dl><dt>Your E-Mail Address</dt><dd><a href=3D"mailto:{0}' + \
          ' target=3D"_blank">{0}</a></dd>'.format(submitterEmail)
     name = '<dt>Name</dt><dd>{0} {1}</dd>'.format(firstName, lastName)
@@ -230,10 +262,10 @@ def make_msg_html(firstName, lastName, submitterEmail, requestDetails):
         requestDetails['expiration'])
     training = '<dt>{0}</dt><dd>{1}</dd>'.format(form.training.label,
         requestDetails['training'])
-    comments = '<dt>{0}</dt><dd>{1}</dd>'.format(form.comments.label,
+    comments = '<dt>{0}</dt><dd>{1}</dd></dl>'.format(form.comments.label,
         requestDetails['comments'])
-    return email, name, embed, download, share, ouNumber, location, \
-        courseName, expiration, training, comments
+    return email + name + embed + download + share + ouNumber + location + \
+        courseName + expiration + training + comments
 
 
 def get_user_data(uc):
@@ -245,14 +277,14 @@ def get_user_data(uc):
 def get_course_choices(courseList):
     linkPrefix = "<a target=\"_blank\" href='http://" + \
         app.config['LMS_HOST'] + \
-        "/d2l/lp/manageCourses/course_offering_info_viewedit.d2l?ou="
+        "/d2l/home/"
     choices = [(course['courseId'],
         course['name'] +
         ", " +
         course['parsed'] +
         linkPrefix +
         str(course['courseId']) +
-        "'>D2L Page</a>") for course in courseList]
+        "'> D2L Page</a>") for course in courseList]
     return choices
 
 
@@ -281,22 +313,38 @@ def get_courses(uc, code):
     kwargs = {'params': {}}
     kwargs['params'].update({'orgUnitTypeId': app.config['ORG_UNIT_TYPE_ID']})
     r = requests.get(myUrl, **kwargs)
-    courseList = []
+    print("R", r.json()['Items'])
+    count=0
+    courseDict = {}
     end = False
     while end == False:
         for course in r.json()['Items']:
+            count +=1
+            print("COUNT", count)
             semCode = str(course['OrgUnit']['Code'][6:10])
-            print("SEMCODE", semCode, "CODE", code)
-            if semCode == code:
-                courseList.append({u'courseId': int(courseId),
-                    u'name': name,
-                    u'code': code,
-                    u'parsed': parse_code(code)})
-            if r.json()['PagingInfo']['HasMoreItems'] == True:
-                kwargs['params']['bookmark'] = r.json()['PagingInfo']['Bookmark']
-                r = requests.get(myUrl, **kwargs)
-            else:
-                end = True
+            print("SEMCODE", semCode)
+            if semCode.isdigit():
+                print(semCode)
+                if semCode not in courseDict:
+                    courseDict[semCode] = []
+                courseDict[semCode].append({u'courseId': int(course['OrgUnit']['Id']),
+                        u'name': course['OrgUnit']['Name'],
+                        u'code': course['OrgUnit']['Code'],
+                        u'parsed': parse_code(course['OrgUnit']['Code'])})
+                print("COURSELIST", courseDict)
+
+        if r.json()['PagingInfo']['HasMoreItems'] == True:
+            kwargs['params']['bookmark'] = r.json()['PagingInfo']['Bookmark']
+            r = requests.get(myUrl, **kwargs)
+        else:
+            print("FULL COURSELIST", courseDict)
+            keys = courseDict.keys()
+            print("KEYS", keys)
+            keys.sort()
+            print("KEYS", keys)
+            courseList = courseDict[keys[-1]]
+            print("COURSELIST", courseList)
+            end = True
     return courseList
 
 

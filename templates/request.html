@@ -1,6 +1,6 @@
 {% extends "template.html" %}
 {% block content %}
-	<h1 class="documentFirstHeading">Request a New Course Setup</h1>
+	<h2 class="documentFirstHeading">Request a New Course Setup</h2>
 	<p class="documentDescription">Use this form to request setup for a new course profile on the Camtasia Relay server.</p>
 	<div id="parent-fieldname-formPrologue">
 		<p>We need to collect a little information about the course you want to set up. It shouldn't hurt too badly.</p>
@@ -24,6 +24,11 @@
 			<div>
 				{{ form.share }} {{ form.share.label }}
 				<div class="formHelp">{{ form.share.description }}</div>
+			</div>
+			<div class="field ArchetypesTextAreaWidget ">
+				{{ form.courseName.label }}
+				<div class="formHelp">{{ form.courseName.description }}</div>
+				<span class="blurrable firstToFocus" rows="1" cols="40">{{ form.courseName }}</span>
 			</div>
 			<div class="field ArchetypesTextAreaWidget ">
 				{{ form.location.label }}

@@ -38,11 +38,12 @@ class RequestForm(Form):
     # gets list of courses for selection
     course = RadioField('Select course',
         description="Which course do you want a profile for on the Camtasia Relay server?",
-        validators=[validators.required(message="You must select a course")])
+        validators=[validators.required(message="You must select a course")],
+        coerce=int)
     
     # checkboxes for options
     embed = BooleanField("Would you like us to embed your videos on your course D2L homepage?",
-        description="students in a central location as soon as they have been created. Alternatively, you can manually add the content to D2L within your course modules.")
+        description="We have the option of embedding your recordings directly on the homepage of your course. This will allow new recordings to be available for students in a central location as soon as they have been created. Alternatively, you can manually add the content to D2L within your course modules.")
     download = BooleanField(" Would you like to allow your students to be able to download your recordings?",
         description="Checking this will allow students to download a copy of the file for personal use when they are offline.")
     share = BooleanField(" Would you like to allow your students to share your recordings?",
